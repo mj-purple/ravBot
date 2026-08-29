@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands
 import os, asyncio
+import uvicorn
 from db import DbHandler
+from server import app
 
 token = os.environ["DISCORD_TOKEN"]
 intents = discord.Intents.default()
@@ -24,6 +26,18 @@ async def load_cogs():
 		if filename.endswith(".py"):
 			await bot.load_extension(f"cogs.{filename[:-3]}")
 
+async def start_server():
+    port = int(os.getenv("SERVER_PORT", 8000))
+
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=port
+    )
+
+    server = uvicorn.Server(config)
+
+    await server.serve()
 
 async def main():
 	db = DbHandler()
@@ -31,6 +45,9 @@ async def main():
 
 	async with bot:
 		await load_cogs()
-		await bot.start(token)
+		await asyncio.gather(
+			bot.start(token),
+			start_server()
+		)
 
 asyncio.run(main())
