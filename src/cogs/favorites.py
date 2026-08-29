@@ -30,8 +30,13 @@ class Favorites(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_raw_reaction_add(self, payload):
+		if payload.member and payload.member.bot:
+			return
 
-		if payload.member and payload.member.bot or str(payload.emoji) != self.emoji:
+		emoji = self.db.get_emoji_for_favorite()
+		if emoji is None:
+			emoji = self.emojiDefault
+		if str(payload.emoji) != emoji:
 			return
 
 		pattern = self.db.get_pattern_from_message(payload.message_id)
@@ -58,8 +63,13 @@ class Favorites(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_raw_reaction_remove(self, payload):
-
-		if payload.member and payload.member.bot or str(payload.emoji) != self.emoji:
+		if payload.member and payload.member.bot:
+			return
+		
+		emoji = self.db.get_emoji_for_favorite()
+		if emoji is None:
+			emoji = self.emojiDefault
+		if str(payload.emoji) != emoji:
 			return
 
 		pattern = self.db.get_pattern_from_message(payload.message_id)

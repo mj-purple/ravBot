@@ -10,7 +10,7 @@ class DbHandler:
 
 	# Custom emoji (1 -> favorite)
 	def insert_emoji_favorite(self, emoji_code):
-		self.cur.execute("INSERT INTO emojis VALUES (1, ?)", (emoji_code,))
+		self.cur.execute("INSERT INTO emojis VALUES (1, ?) ON CONFLICT(type) DO UPDATE SET emoji_code = excluded.emoji_code", (emoji_code,))
 		self.con.commit()
 	
 	def get_emoji_for_favorite(self):
