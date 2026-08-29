@@ -1,5 +1,6 @@
 import os
 import httpx
+from datetime import datetime, timezone
 from ravelpy import RavelryClient
 from ravelpy.oauth import OAuthClient, OAuthScope
 
@@ -24,6 +25,13 @@ class RavelryHandler:
 	def create_client_auth(self, token):
 		return RavelryClient.from_oauth_token(token)
 
+	async def refresh_user_token(self, user):
+		refresh_token = user[3]
+		token_expiration_date = datetime.fromisoformat(user[4])
+		if datetime.now(timezone.utc) >= token_expiration_date:
+			return await self.oauth.refresh(refresh_token)
+		return None
+	
 	async def add_favorite(self, access_token, username, pattern_id):
 		url = f"https://api.ravelry.com/people/{username}/favorites/create.json"
 
@@ -53,15 +61,15 @@ class RavelryHandler:
 
 			return response.json()
 
-	async def remove_favorite(self, access_token, username, pattern_id):
-		url = f"https://api.ravelry.com/people/{username}/favorites/{pattern_id}.json"
+	async def remove_favorite(self, access_token, username, bookmark_id):
+		url = f"https://api.ravelry.com/people/{username}/favorites/{bookmark_id}.json"
 
 		headers = {
 			"Authorization": f"Bearer {access_token}",
 			"Accept": "application/json",
 			"Content-Type": "application/json",
 		}
-
+		print(url)
 		async with httpx.AsyncClient() as client:
 			response = await client.delete(
 				url,

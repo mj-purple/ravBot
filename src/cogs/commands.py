@@ -13,7 +13,7 @@ class Commands(commands.Cog):
 	@app_commands.command(name="set_emoji_fav", description="Set a custom emoji for the favorite reaction")
 	async def set_emoji_fav(self, interaction: discord.Interaction, emoji: str):
 		emoji_current = self.db.get_emoji_for_favorite()
-		if emoji_current is not emoji:
+		if emoji_current != emoji:
 			self.db.insert_emoji_favorite(emoji)
 			await interaction.response.send_message(f'{emoji} has been set as the "Favorite" emoji!')
 			return

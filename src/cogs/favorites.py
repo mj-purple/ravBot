@@ -20,12 +20,12 @@ class Favorites(commands.Cog):
 			return
 		if "ravelry.com/patterns/library" in message.content:
 			pattern_id = await self.util.get_pattern_id(message.content)
-
 			self.db.insert_pattern(message.id, pattern_id)
 
 			emoji = self.db.get_emoji_for_favorite()
 			if emoji is None:
 				emoji = self.emojiDefault
+
 			await message.add_reaction(emoji)
 
 	@commands.Cog.listener()
@@ -36,6 +36,7 @@ class Favorites(commands.Cog):
 		emoji = self.db.get_emoji_for_favorite()
 		if emoji is None:
 			emoji = self.emojiDefault
+
 		if str(payload.emoji) != emoji:
 			return
 
@@ -52,10 +53,14 @@ class Favorites(commands.Cog):
 		if user is None:
 			await channel.send("User not registered")
 			return
-
+		
 		username = user[1]
 		user_token = user[2]
-
+		token = await self.rav.refresh_user_token(user)
+		if token is not None:
+			self.db.update_user_tokens(user_id, token)
+			user_token = token.access_token
+		
 		result = await self.rav.add_favorite(user_token, username, pattern_id)
 
 		self.db.insert_pattern_bookmark_id(user_id, pattern_id, result["bookmark"]["id"])
@@ -89,11 +94,17 @@ class Favorites(commands.Cog):
 		username = user[1]
 		user_token = user[2]
 
+		token = await self.rav.refresh_user_token(user)
+		if token is not None:
+			self.db.update_user_tokens(user_id, token)
+			user_token = token.access_token
+
 		bookmark = self.db.get_bookmark_from_user_pattern(user_id, pattern_id)
 		if bookmark is None:
 			return
 		
 		result = await self.rav.remove_favorite(user_token, username, bookmark)
+		self.db.remove_pattern_bookmark_id(user_id, pattern_id)
 		print(result)
 
 async def setup(bot):

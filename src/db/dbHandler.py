@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 import sqlite3
 
 DATABASE_FILE = Path(__file__).resolve().parent / "data.sqlite"
@@ -16,12 +17,11 @@ class DbHandler:
 	def get_emoji_for_favorite(self):
 		self.cur.execute("SELECT emoji_code FROM emojis WHERE type = 1")
 		result = self.cur.fetchone()
-
 		return result[0] if result else None
 
 	# User
 	def insert_user(self, discord_user_id, username, rav_token):
-		self.cur.execute("INSERT INTO users VALUES (?, ?, ?, ?)", (discord_user_id, username, rav_token.access_token, rav_token.refresh_token))
+		self.cur.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", (discord_user_id, username, rav_token.access_token, rav_token.refresh_token, datetime.now(timezone.utc) + timedelta(seconds=rav_token.expires_in)))
 		self.con.commit()
 
 	def get_user_from_discord_id(self, discord_user_id):
@@ -29,6 +29,10 @@ class DbHandler:
 		result = self.cur.fetchone()
 
 		return result if result else None
+
+	def update_user_tokens(self, discord_user_id, rav_token):
+		self.cur.execute("UPDATE users SET rav_token = ?, rav_refresh_token = ?, expiration_date = ? WHERE user_id = ?", (rav_token.access_token, rav_token.refresh_token, datetime.now(timezone.utc) + timedelta(seconds=rav_token.expires_in), discord_user_id))
+		self.con.commit()
 
 	# oAuth
 	def insert_oauth_state(self, state, discord_user_id):
@@ -55,7 +59,11 @@ class DbHandler:
 		return result if result else None
 
 	def insert_pattern_bookmark_id(self, discord_user_id, pattern_id, bookmark_id):
-		self.cur.execute("INSERT INTO patterns_users (user_id, pattern_id, bookmark_id) VALUES (?, ?, ?)", (discord_user_id, pattern_id, bookmark_id))
+		self.cur.execute("INSERT INTO patterns_users (user_id, pattern_id, bookmark_id) VALUES (?, ?, ?) ON CONFLICT(user_id, pattern_id) DO UPDATE SET bookmark_id = excluded.bookmark_id", (discord_user_id, pattern_id, bookmark_id))
+		self.con.commit()
+
+	def remove_pattern_bookmark_id(self, discord_user_id, pattern_id):
+		self.cur.execute("DELETE FROM patterns_users WHERE user_id = ? AND pattern_id = ?", (discord_user_id, pattern_id))
 		self.con.commit()
 
 	def get_bookmark_from_user_pattern(self, discord_user_id, pattern_id):
@@ -65,8 +73,8 @@ class DbHandler:
 
 	def init_table(self):
 		self.cur.execute("CREATE TABLE IF NOT EXISTS emojis (type INTEGER PRIMARY KEY, emoji_code TEXT)")
-		self.cur.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, rav_name TEXT, rav_token TEXT, rav_refresh_token TEXT)")
+		self.cur.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, rav_name TEXT, rav_token TEXT, rav_refresh_token TEXT, expiration_date TIMESTAMP)")
 		self.cur.execute("CREATE TABLE IF NOT EXISTS oauth_data (state TEXT PRIMARY KEY, user_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(user_id))")
-		self.cur.execute("CREATE TABLE IF NOT EXISTS patterns (message_id INTEGER PRIMARY KEY, pattern_id INTEGER UNIQUE)")
+		self.cur.execute("CREATE TABLE IF NOT EXISTS patterns (message_id INTEGER PRIMARY KEY, pattern_id INTEGER)")
 		self.cur.execute("CREATE TABLE IF NOT EXISTS patterns_users (user_id INTEGER, pattern_id INTEGER, bookmark_id INTEGER, PRIMARY KEY(user_id, pattern_id), FOREIGN KEY (user_id) REFERENCES users(user_id), FOREIGN KEY (pattern_id) REFERENCES patterns(pattern_id))")
 		self.con.commit()
