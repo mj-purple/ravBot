@@ -31,6 +31,7 @@ class Commands(commands.Cog):
 				title="Ravelry login",
 				url=url,
 				description="Click here and login into your account",
+				ephemeral=True,
 				color=discord.Color.blue()
 			)
 			await interaction.response.send_message(embed=embed)
