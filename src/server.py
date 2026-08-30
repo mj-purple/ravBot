@@ -24,8 +24,7 @@ async def ravelry_callback(request: Request, code: str, state: str):
 		async with rav.create_client_auth(token.access_token) as client:
 			data, etag, raw = await client.people.me()
 			username = raw["user"]["username"]
-			print(username)
-		print(vars(token))
+
 		db.insert_user(user, username, token)
 
 		db.delete_oauth_state(state)

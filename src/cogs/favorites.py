@@ -22,7 +22,7 @@ class Favorites(commands.Cog):
 			pattern_id = await self.util.get_pattern_id(message.content)
 			self.db.insert_pattern(message.id, pattern_id)
 
-			emoji = self.db.get_emoji_for_favorite()
+			emoji = self.db.get_emoji_for_favorite(message.guild.id)
 			if emoji is None:
 				emoji = self.emojiDefault
 
@@ -33,7 +33,7 @@ class Favorites(commands.Cog):
 		if payload.member and payload.member.bot:
 			return
 
-		emoji = self.db.get_emoji_for_favorite()
+		emoji = self.db.get_emoji_for_favorite(payload.guild_id)
 		if emoji is None:
 			emoji = self.emojiDefault
 
@@ -43,7 +43,7 @@ class Favorites(commands.Cog):
 		pattern = self.db.get_pattern_from_message(payload.message_id)
 		if pattern is None:
 			return
-		pattern_id = pattern[1]
+		pattern_id = pattern["pattern_id"]
 
 		channel = self.bot.get_channel(payload.channel_id)
 
@@ -54,8 +54,8 @@ class Favorites(commands.Cog):
 			await channel.send("User not registered")
 			return
 		
-		username = user[1]
-		user_token = user[2]
+		username = user["rav_name"]
+		user_token = user["rav_token"]
 		token = await self.rav.refresh_user_token(user)
 		if token is not None:
 			self.db.update_user_tokens(user_id, token)
@@ -71,7 +71,7 @@ class Favorites(commands.Cog):
 		if payload.member and payload.member.bot:
 			return
 		
-		emoji = self.db.get_emoji_for_favorite()
+		emoji = self.db.get_emoji_for_favorite(payload.guild_id)
 		if emoji is None:
 			emoji = self.emojiDefault
 		if str(payload.emoji) != emoji:
@@ -80,7 +80,7 @@ class Favorites(commands.Cog):
 		pattern = self.db.get_pattern_from_message(payload.message_id)
 		if pattern is None:
 			return
-		pattern_id = pattern[1]
+		pattern_id = pattern["pattern_id"]
 
 		channel = self.bot.get_channel(payload.channel_id)
 
@@ -91,8 +91,8 @@ class Favorites(commands.Cog):
 			await channel.send("User not registered")
 			return
 
-		username = user[1]
-		user_token = user[2]
+		username = user["rav_name"]
+		user_token = user["rav_token"]
 
 		token = await self.rav.refresh_user_token(user)
 		if token is not None:

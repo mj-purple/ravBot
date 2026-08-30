@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from utils import Encryption
 import sqlite3
 
 DATABASE_FILE = Path(__file__).resolve().parent / "data.sqlite"
@@ -7,21 +8,26 @@ DATABASE_FILE = Path(__file__).resolve().parent / "data.sqlite"
 class DbHandler:
 	def __init__(self):
 		self.con = sqlite3.connect(DATABASE_FILE)
+		self.con.row_factory = sqlite3.Row
 		self.cur = self.con.cursor()
+		self.crypt = Encryption()
 
 	# Custom emoji (1 -> favorite)
-	def insert_emoji_favorite(self, emoji_code):
-		self.cur.execute("INSERT INTO emojis VALUES (1, ?) ON CONFLICT(type) DO UPDATE SET emoji_code = excluded.emoji_code", (emoji_code,))
+	def insert_emoji_favorite(self, server_id, emoji_code):
+		self.cur.execute("INSERT INTO emojis VALUES (1, ?, ?) ON CONFLICT(type, server_id) DO UPDATE SET emoji_code = excluded.emoji_code", (server_id, emoji_code))
 		self.con.commit()
 	
-	def get_emoji_for_favorite(self):
-		self.cur.execute("SELECT emoji_code FROM emojis WHERE type = 1")
+	def get_emoji_for_favorite(self, server_id):
+		self.cur.execute("SELECT emoji_code FROM emojis WHERE type = 1 AND server_id = ?", (server_id,))
 		result = self.cur.fetchone()
-		return result[0] if result else None
+		return result["emoji_code"] if result else None
 
 	# User
 	def insert_user(self, discord_user_id, username, rav_token):
-		self.cur.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", (discord_user_id, username, rav_token.access_token, rav_token.refresh_token, datetime.now(timezone.utc) + timedelta(seconds=rav_token.expires_in)))
+		expiration_date = datetime.now(timezone.utc) + timedelta(seconds=rav_token.expires_in)
+		access_token = self.crypt.encrypt(rav_token.access_token)
+		refresh_token = self.crypt.encrypt(rav_token.refresh_token)
+		self.cur.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", (discord_user_id, username, access_token, refresh_token, expiration_date))
 		self.con.commit()
 
 	def get_user_from_discord_id(self, discord_user_id):
@@ -31,7 +37,10 @@ class DbHandler:
 		return result if result else None
 
 	def update_user_tokens(self, discord_user_id, rav_token):
-		self.cur.execute("UPDATE users SET rav_token = ?, rav_refresh_token = ?, expiration_date = ? WHERE user_id = ?", (rav_token.access_token, rav_token.refresh_token, datetime.now(timezone.utc) + timedelta(seconds=rav_token.expires_in), discord_user_id))
+		expiration_date = datetime.now(timezone.utc) + timedelta(seconds=rav_token.expires_in)
+		access_token = self.crypt.encrypt(rav_token.access_token)
+		refresh_token = self.crypt.encrypt(rav_token.refresh_token)
+		self.cur.execute("UPDATE users SET rav_token = ?, rav_refresh_token = ?, expiration_date = ? WHERE user_id = ?", (access_token, refresh_token, expiration_date, discord_user_id))
 		self.con.commit()
 
 	# oAuth
@@ -42,7 +51,7 @@ class DbHandler:
 	def get_user_id_from_state(self, state):
 		self.cur.execute("SELECT user_id FROM oauth_data WHERE state = ?", (state,))
 		result = self.cur.fetchone()
-		return result[0] if result else None
+		return result["user_id"] if result else None
 
 	def delete_oauth_state(self, state):
 		self.cur.execute("DELETE FROM oauth_data WHERE state = ?", (state,))
@@ -69,10 +78,10 @@ class DbHandler:
 	def get_bookmark_from_user_pattern(self, discord_user_id, pattern_id):
 		self.cur.execute("SELECT bookmark_id FROM patterns_users WHERE user_id = ? AND pattern_id = ?", (discord_user_id, pattern_id))
 		result = self.cur.fetchone()
-		return result[0] if result else None
+		return result["bookmark_id"] if result else None
 
 	def init_table(self):
-		self.cur.execute("CREATE TABLE IF NOT EXISTS emojis (type INTEGER PRIMARY KEY, emoji_code TEXT)")
+		self.cur.execute("CREATE TABLE IF NOT EXISTS emojis (type INTEGER, server_id TEXT, emoji_code TEXT, PRIMARY KEY (type, server_id))")
 		self.cur.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, rav_name TEXT, rav_token TEXT, rav_refresh_token TEXT, expiration_date TIMESTAMP)")
 		self.cur.execute("CREATE TABLE IF NOT EXISTS oauth_data (state TEXT PRIMARY KEY, user_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(user_id))")
 		self.cur.execute("CREATE TABLE IF NOT EXISTS patterns (message_id INTEGER PRIMARY KEY, pattern_id INTEGER)")
