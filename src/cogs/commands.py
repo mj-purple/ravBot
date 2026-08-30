@@ -31,10 +31,9 @@ class Commands(commands.Cog):
 				title="Ravelry login",
 				url=url,
 				description="Click here and login into your account",
-				ephemeral=True,
 				color=discord.Color.blue()
 			)
-			await interaction.response.send_message(embed=embed)
+			await interaction.response.send_message(embed=embed, ephemeral=True)
 			return
 
 		await interaction.response.send_message("Your Ravelry account has already been connected")
