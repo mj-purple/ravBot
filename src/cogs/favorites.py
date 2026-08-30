@@ -5,6 +5,7 @@ from discord.ext import commands
 from db import DbHandler
 from api import RavelryHandler
 from utils import UrlParser
+from utils import Encryption
 
 class Favorites(commands.Cog):
 	def __init__(self, bot):
@@ -12,6 +13,7 @@ class Favorites(commands.Cog):
 		self.db = DbHandler()
 		self.rav = RavelryHandler()
 		self.util = UrlParser()
+		self.crypt = Encryption()
 		self.emojiDefault = "🧶"
 	
 	@commands.Cog.listener()
@@ -59,7 +61,7 @@ class Favorites(commands.Cog):
 		token = await self.rav.refresh_user_token(user)
 		if token is not None:
 			self.db.update_user_tokens(user_id, token)
-			user_token = token.access_token
+			user_token = self.crypt.encrypt(token.access_token)
 		
 		result = await self.rav.add_favorite(user_token, username, pattern_id)
 
@@ -97,7 +99,7 @@ class Favorites(commands.Cog):
 		token = await self.rav.refresh_user_token(user)
 		if token is not None:
 			self.db.update_user_tokens(user_id, token)
-			user_token = token.access_token
+			user_token = self.crypt.encrypt(token.access_token)
 
 		bookmark = self.db.get_bookmark_from_user_pattern(user_id, pattern_id)
 		if bookmark is None:
